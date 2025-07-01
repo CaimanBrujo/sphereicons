@@ -9,6 +9,8 @@ export function useSphereAnimation(iconCount: number, radius: number) {
   const dragging = useRef(false)
   const lastMouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const requestRef = useRef<number>(0)
+  const hovering = useRef(false)
+  const containerCenter = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const rotateX = (pos: Vec3, angle: number): Vec3 => {
     const cos = Math.cos(angle)
@@ -59,10 +61,17 @@ export function useSphereAnimation(iconCount: number, radius: number) {
   }, [project])
 
   const animate = useCallback(() => {
+    if (!dragging.current && !hovering.current) {
+      const baseRotationSpeed = 0.002
+      rotation.current.x += baseRotationSpeed
+      rotation.current.y += baseRotationSpeed
+    }
     rotation.current.x += velocity.current.y
     rotation.current.y += velocity.current.x
+
     velocity.current.x *= 0.95
     velocity.current.y *= 0.95
+
     draw()
     requestRef.current = requestAnimationFrame(animate)
   }, [draw])
@@ -82,45 +91,90 @@ export function useSphereAnimation(iconCount: number, radius: number) {
     }
 
     positions.current = newPositions
+
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      containerCenter.current = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      }
+    }
+
     requestRef.current = requestAnimationFrame(animate)
 
     return () => cancelAnimationFrame(requestRef.current)
   }, [iconCount, radius, animate])
 
-  useEffect(() => {
-    const getXY = (e: MouseEvent | TouchEvent) => {
-      if ('touches' in e)
-        return { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      return { x: e.clientX, y: e.clientY }
-    }
+  const getXY = (e: MouseEvent | TouchEvent) => {
+    if ('touches' in e)
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    return { x: e.clientX, y: e.clientY }
+  }
 
-    const handleMouseDown = (e: MouseEvent | TouchEvent) => {
-      dragging.current = true
-      lastMouse.current = getXY(e)
-    }
+  const handleMouseDown = (e: MouseEvent | TouchEvent) => {
+    dragging.current = true
+    lastMouse.current = getXY(e)
+  }
 
-    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
-      if (!dragging.current) return
-      const { x, y } = getXY(e)
+  const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+    const { x, y } = getXY(e)
+
+    if (!containerRef.current) return
+
+    const dxCenter = x - containerCenter.current.x
+    const dyCenter = y - containerCenter.current.y
+    const distCenter = Math.sqrt(dxCenter * dxCenter + dyCenter * dyCenter)
+
+    const maxDist =
+      Math.sqrt(
+        containerRef.current.offsetWidth ** 2 +
+          containerRef.current.offsetHeight ** 2
+      ) / 2
+
+    const speedMultiplier = Math.min(distCenter / maxDist, 1)
+
+    if (!dragging.current) {
+      velocity.current.x = speedMultiplier * 0.02
+      velocity.current.y = speedMultiplier * 0.02
+    } else {
       const dx = x - lastMouse.current.x
       const dy = y - lastMouse.current.y
-      velocity.current = { x: dx * 0.005, y: dy * 0.005 }
+      velocity.current = {
+        x: dx * 0.005,
+        y: dy * 0.005
+      }
       lastMouse.current = { x, y }
     }
+  }
 
-    const handleMouseUp = () => {
-      dragging.current = false
-    }
+  const handleMouseUp = () => {
+    dragging.current = false
+  }
 
+  const handleMouseEnter = () => {
+    hovering.current = true
+  }
+
+  const handleMouseLeave = () => {
+    hovering.current = false
+  }
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    container.addEventListener('mouseenter', handleMouseEnter)
+    container.addEventListener('mouseleave', handleMouseLeave)
     window.addEventListener('mousedown', handleMouseDown)
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
-
     window.addEventListener('touchstart', handleMouseDown)
     window.addEventListener('touchmove', handleMouseMove)
     window.addEventListener('touchend', handleMouseUp)
 
     return () => {
+      container.removeEventListener('mouseenter', handleMouseEnter)
+      container.removeEventListener('mouseleave', handleMouseLeave)
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
@@ -128,7 +182,7 @@ export function useSphereAnimation(iconCount: number, radius: number) {
       window.removeEventListener('touchmove', handleMouseMove)
       window.removeEventListener('touchend', handleMouseUp)
     }
-  }, [])
+  })
 
   return { containerRef }
 }
