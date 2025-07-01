@@ -31,3 +31,7 @@
     --color-border: var(--color-gray-500);
   }
 }
+
+.perspective {
+  perspective: 1000px;
+}
