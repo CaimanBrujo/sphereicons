@@ -4,7 +4,7 @@ export default function Footer() {
   return (
     <footer className="w-full bg-background text-muted py-6 px-6 border-t border-border mt-auto">
       <p className="text-sm text-center flex items-center justify-center gap-2">
-        © {new Date().getFullYear()} Template |
+        © {new Date().getFullYear()}
         <a
           href="https://github.com/CaimanBrujo"
           target="_blank"
@@ -14,7 +14,6 @@ export default function Footer() {
           <Github className="w-4 h-4" />
           Caiman Brujo
         </a>{' '}
-        | All rights reserved.
       </p>
     </footer>
   )
