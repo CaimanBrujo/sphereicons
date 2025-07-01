@@ -1,58 +1,7 @@
-// SphereIcons.tsx
-import { useRef, useEffect } from 'react'
-import type { ForwardRefExoticComponent, RefAttributes } from 'react'
-import type { LucideProps } from 'lucide-react'
-import {
-  Github,
-  Figma,
-  Linkedin,
-  Twitter,
-  Chrome,
-  Code,
-  Mail,
-  PenTool,
-  Zap,
-  Music,
-  Cloud,
-  Cpu,
-  Eye,
-  Camera,
-  Video,
-  Wifi,
-  Phone,
-  Heart,
-  Star
-} from 'lucide-react'
+import { useRef, useEffect, useCallback } from 'react'
+import type { Vec3 } from './types'
 
-type IconType = ForwardRefExoticComponent<
-  Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>
->
-
-type Vec3 = { x: number; y: number; z: number }
-
-const icons: IconType[] = [
-  Github,
-  Figma,
-  Linkedin,
-  Twitter,
-  Chrome,
-  Code,
-  Mail,
-  PenTool,
-  Zap,
-  Music,
-  Cloud,
-  Cpu,
-  Eye,
-  Camera,
-  Video,
-  Wifi,
-  Phone,
-  Heart,
-  Star
-]
-
-export default function SphereIcons() {
+export function useSphereAnimation(iconCount: number, radius: number) {
   const containerRef = useRef<HTMLDivElement>(null)
   const positions = useRef<Vec3[]>([])
   const rotation = useRef<Vec3>({ x: 0, y: 0, z: 0 })
@@ -60,9 +9,6 @@ export default function SphereIcons() {
   const dragging = useRef(false)
   const lastMouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const requestRef = useRef<number>(0)
-
-  const radius = 150
-  const iconCount = icons.length
 
   const rotateX = (pos: Vec3, angle: number): Vec3 => {
     const cos = Math.cos(angle)
@@ -84,16 +30,19 @@ export default function SphereIcons() {
     }
   }
 
-  const project = (pos: Vec3) => {
-    const scale = 0.5 + pos.z / (2 * radius)
-    return {
-      x: pos.x * scale,
-      y: pos.y * scale,
-      scale
-    }
-  }
+  const project = useCallback(
+    (pos: Vec3) => {
+      const scale = 0.5 + pos.z / (2 * radius)
+      return {
+        x: pos.x * scale,
+        y: pos.y * scale,
+        scale
+      }
+    },
+    [radius]
+  )
 
-  const draw = () => {
+  const draw = useCallback(() => {
     if (!containerRef.current) return
     const children = Array.from(containerRef.current.children) as HTMLElement[]
     positions.current.forEach((pos, i) => {
@@ -107,16 +56,16 @@ export default function SphereIcons() {
       icon.style.zIndex = `${Math.floor(projected.scale * 100)}`
       icon.style.opacity = `${projected.scale}`
     })
-  }
+  }, [project])
 
-  const animate = () => {
+  const animate = useCallback(() => {
     rotation.current.x += velocity.current.y
     rotation.current.y += velocity.current.x
     velocity.current.x *= 0.95
     velocity.current.y *= 0.95
     draw()
     requestRef.current = requestAnimationFrame(animate)
-  }
+  }, [draw])
 
   useEffect(() => {
     const step = Math.PI * (3 - Math.sqrt(5))
@@ -136,30 +85,26 @@ export default function SphereIcons() {
     requestRef.current = requestAnimationFrame(animate)
 
     return () => cancelAnimationFrame(requestRef.current)
-  })
+  }, [iconCount, radius, animate])
 
   useEffect(() => {
+    const getXY = (e: MouseEvent | TouchEvent) => {
+      if ('touches' in e)
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      return { x: e.clientX, y: e.clientY }
+    }
+
     const handleMouseDown = (e: MouseEvent | TouchEvent) => {
       dragging.current = true
-      const x =
-        'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-      const y =
-        'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-      lastMouse.current = { x, y }
+      lastMouse.current = getXY(e)
     }
 
     const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (!dragging.current) return
-      const x =
-        'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-      const y =
-        'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+      const { x, y } = getXY(e)
       const dx = x - lastMouse.current.x
       const dy = y - lastMouse.current.y
-      velocity.current = {
-        x: dx * 0.005,
-        y: dy * 0.005
-      }
+      velocity.current = { x: dx * 0.005, y: dy * 0.005 }
       lastMouse.current = { x, y }
     }
 
@@ -179,26 +124,11 @@ export default function SphereIcons() {
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
-
       window.removeEventListener('touchstart', handleMouseDown)
       window.removeEventListener('touchmove', handleMouseMove)
       window.removeEventListener('touchend', handleMouseUp)
     }
   }, [])
 
-  return (
-    <div className="relative w-[400px] h-[400px] mx-auto">
-      <div
-        ref={containerRef}
-        className="absolute inset-0 flex items-center justify-center"
-      >
-        {icons.map((Icon, index) => (
-          <Icon
-            key={index}
-            className="absolute w-8 h-8 text-accent transition-transform duration-100"
-          />
-        ))}
-      </div>
-    </div>
-  )
+  return { containerRef }
 }

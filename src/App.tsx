@@ -1,6 +1,6 @@
 import Header from './components/Header'
 import Footer from './components/Footer'
-import SphereIcons from './components/SphereIcons'
+import SphereIcons from './components/SphereIcons/SphereIcons'
 
 export default function App() {
   return (
